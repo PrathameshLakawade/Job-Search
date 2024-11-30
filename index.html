@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Job Search</title>
+
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" 
+            rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" 
+            crossorigin="anonymous"
+        >
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet" 
+            integrity="sha384-KyZXEJ0YxGz3jsnWaa0ckELsbfeq5c30KInkhIQnXZo1cOXhOTgrH1xwA9eIeaT8" crossorigin="anonymous"
+        >
+        <style>
+            .job-card {
+                background: #212529;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                padding: 20px;
+                margin-bottom: 20px;
+                transition: transform 0.2s;
+            }
+            .job-card:hover {
+                transform: scale(1.02);
+            }
+            .apply-btn {
+                margin-top: 10px;
+            }
+        </style>
+    </head>
+    <body class="bg-dark text-bg-dark">
+        <nav class="navbar bg-dark">
+            <div class="container">
+                <a class="navbar-brand" href="/">
+                    <img src="https://cdn.worldvectorlogo.com/logos/elasticsearch.svg" alt="Logo" width="60" height="60" class="d-inline-block">
+                    <b class="fs-3 mx-3 text-bg-dark">Job Search</b>
+                </a>
+                <div class="input-group my-4">
+                    <input 
+                        type="text" 
+                        id="searchQuery" 
+                        class="form-control form-control-lg border-0" 
+                        placeholder="Search using skills, job titles, location, etc." 
+                        aria-label="Search Bar"
+                        onkeydown="handleKeyPress(event)"
+                    >
+                    <span class="input-group-text border-0" onclick="searchJobs()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
+                            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
+                        </svg>
+                    </span>
+                </div>
+                <div class="row w-100">
+                    <!-- Dropdown for Filter -->
+                    <div class="col-2">
+                        <div class="btn-group">
+                            <button 
+                                type="button" 
+                                id="filterDropdown" 
+                                class="btn btn-outline-light dropdown-toggle" 
+                                data-bs-toggle="dropdown" 
+                                aria-expanded="false"
+                            >
+                                Filter jobs by time
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" onclick="filter_by_time('now-24h/d', 'Past 24 hours')">Past 24 hours</a></li>
+                                <li><a class="dropdown-item" onclick="filter_by_time('now-7d/d', 'Past week')">Past week</a></li>
+                                <li><a class="dropdown-item" onclick="filter_by_time('now-1M/d', 'Past 1 month')">Past 1 month</a></li>
+                                <li><a class="dropdown-item" onclick="filter_by_time('now-6M/d', 'Past 6 months')">Past 6 months</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" onclick="get_all_jobs('Recent to earliest')">Recent to earliest</a></li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- File Upload -->
+                    <div class="col-8">
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark text-light" id="basic-addon3">Find matching jobs to your resume</span>
+                            <input 
+                                type="file" 
+                                class="form-control" 
+                                id="pdfFile" 
+                                accept=".pdf" 
+                                name="resume" 
+                                aria-describedby="resume" 
+                                aria-label="Upload"
+                            >
+                            <button class="btn btn-outline-light" type="button" id="uploadResumeButton">Upload</button>
+                        </div>                        
+                    </div>
+                    
+                    <!-- Records Count -->
+                    <div class="col-2 text-center fs-5 fw-bold">
+                        <p id="recordsCount">Showing 0 jobs</p>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Results Section -->
+        <div class="container my-3">
+            <div id="jobResults" class="text-light">
+            </div>
+        </div>
+
+        <script>
+            const apiUrl = "http://127.0.0.1:8000";
+
+            document.addEventListener("DOMContentLoaded", () => {
+                // Fetch jobs from the past 1 month on load
+                filter_by_time('now-1M/d', 'Past 1 month');
+
+                // Attach event handler for upload button
+                const uploadButton = document.getElementById('uploadResumeButton');
+                uploadButton.addEventListener('click', () => {
+                    const fileInput = document.getElementById('pdfFile'); // Reference the file input
+                    uploadResume(fileInput);
+                });
+            });
+
+            function handleKeyPress(event) {
+                if (event.key === "Enter") {
+                    searchJobs();
+                }
+            }
+
+            async function get_all_jobs(label) {
+                const filterDropdown = document.getElementById('filterDropdown');
+                const searchQueryInput = document.getElementById('searchQuery');
+                filterDropdown.textContent = label;
+                searchQueryInput.value = '';
+                try {
+                    const response = await fetch(`${apiUrl}/all`);
+                    const result = await response.json();
+                    updateRecordsCount(result.jobs.length);
+                    displayJobs(result.jobs);
+                } catch (error) {
+                    console.error("Error fetching jobs:", error);
+                }
+            }
+
+            async function filter_by_time(range, label) {
+                const filterDropdown = document.getElementById('filterDropdown');
+                const searchQueryInput = document.getElementById('searchQuery');
+                filterDropdown.textContent = label;
+                searchQueryInput.value = '';
+                try {
+                    const response = await fetch(`${apiUrl}/filter/?query=${range}`);
+                    const result = await response.json();
+                    updateRecordsCount(result.jobs.length);
+                    displayJobs(result.jobs);
+                } catch (error) {
+                    console.error("Error fetching jobs:", error);
+                }
+            }
+
+            function updateRecordsCount(count) {
+                const recordsCount = document.getElementById('recordsCount');
+                recordsCount.textContent = `Showing ${count} jobs`;
+            }
+
+            async function searchJobs() {
+                const query = document.getElementById('searchQuery').value;
+
+                if (!query) {
+                    alert("Please enter a search query.");
+                    return;
+                }
+
+                // Reset filter dropdown to default label
+                const filterDropdown = document.getElementById('filterDropdown');
+                filterDropdown.textContent = "Filter jobs by time";
+
+                try {
+                    const response = await fetch(`${apiUrl}/jobs/?query=${query}`);
+                    const result = await response.json();
+                    updateRecordsCount(result.jobs.length);
+                    displayJobs(result.jobs);
+                } catch (error) {
+                    console.error("Error fetching jobs:", error);
+                }
+            }
+
+            async function uploadResume(fileInput) {
+                const file = fileInput.files[0]; // Get the selected file
+
+                if (!file) {
+                    alert('Please select a PDF file.');
+                    return;
+                }
+
+                if (file.type !== 'application/pdf') {
+                    alert('Only PDF files are allowed.');
+                    fileInput.value = ''; // Reset file input
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('resume', file);
+
+                try {
+                    console.log("Uploading file...");
+                    // Send the file to the FastAPI backend
+                    const response = await fetch("http://127.0.0.1:8000/skills", {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    console.log("Upload successful, displaying jobs...");
+                    displayJobs(result.jobs); // Call your display logic
+                } catch (error) {
+                    console.error('Error uploading the file:', error);
+                    alert('An error occurred while uploading the file.');
+                } finally {
+                    fileInput.value = ''; // Reset the file input
+                }
+            }
+
+            function displayJobs(jobs) {
+                const jobResultsDiv = document.getElementById('jobResults');
+                jobResultsDiv.innerHTML = '';
+
+                if (jobs.length === 0) {
+                    jobResultsDiv.innerHTML = '<p class="text-center fw-bold fs-3">Sorry! Looks like we don\'t have jobs matching your query.</p>';
+                    return;
+                }
+
+                jobs.forEach(job => {
+                    const jobCard = document.createElement('div');
+                    jobCard.className = 'job-card';
+                    jobCard.innerHTML = `
+                        <h3 class="text-light">${job.title}</h3>
+                        <p><strong>Description:</strong> ${job.description}</p>
+                        <p><strong>Location:</strong> ${job.location}</p>
+                        <p><strong>Skills:</strong> ${job.skills.join(', ')}</p>
+                        <p><strong>Posted:</strong> ${job.posted_date}</p>
+                        <button class="btn btn-primary apply-btn">Apply</button>
+                    `;
+                    jobResultsDiv.appendChild(jobCard);
+                });
+            }
+        </script>
+
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" 
+integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous">
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" 
+integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous">
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.min.css"></script>
+</body>
+</html>

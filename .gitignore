@@ -1,0 +1,4 @@
+__pycache__/
+venv/
+populate_fake_data.py
+.env
