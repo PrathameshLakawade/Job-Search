@@ -1,0 +1,14 @@
+.job-card {
+    background: #212529;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    margin-bottom: 20px;
+    transition: transform 0.2s;
+}
+.job-card:hover {
+    transform: scale(1.02);
+}
+.apply-btn {
+    margin-top: 10px;
+}

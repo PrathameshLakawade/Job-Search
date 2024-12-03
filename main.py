@@ -1,12 +1,12 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile
+from fastapi import FastAPI, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from PyPDF2 import PdfReader
 from elasticsearch import Elasticsearch
 from pydantic import BaseModel
 from typing import List, Optional
-import os, re
 from dotenv import load_dotenv
-from PyPDF2 import PdfReader
-from fastapi.responses import JSONResponse
+import os, re
 
 load_dotenv()
 
@@ -136,5 +136,4 @@ async def extract_skills(resume: UploadFile):
         jobs = [hit["_source"] for hit in response["hits"]["hits"]]
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": f"Error querying Elasticsearch: {str(e)}"})
-    print(jobs)
     return {"jobs": jobs}
